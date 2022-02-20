@@ -31,15 +31,28 @@ public static class Program
 
 			var mode = args[0];
 
+			using var client = new LifxLanClient(new LifxLanClientOptions {
+				Logger = Logger
+			});
+			client.Start(cancellationToken);
+			client.DeviceDiscovered += DeviceDiscovered;
+			client.DeviceLost += Client_DeviceLost;
+			client.StartDeviceDiscovery();
+
 			switch (mode)
 			{
 				case "discover":
-					await DiscoveryModeAsync(args, cancellationToken)
+					await DiscoveryModeAsync(client, args, cancellationToken)
 						.ConfigureAwait(false);
 					Logger.LogDebug("Exiting");
 					break;
-				case "set":
-					await SetModeAsync(args, cancellationToken)
+				case "switch":
+					await SwitchAsync(client, args, cancellationToken)
+						.ConfigureAwait(false);
+					Logger.LogDebug("Exiting");
+					break;
+				case "color":
+					await SetColorAsync(client, args, cancellationToken)
 						.ConfigureAwait(false);
 					Logger.LogDebug("Exiting");
 					break;
@@ -65,16 +78,9 @@ public static class Program
 		}
 	}
 
-	private static async Task SetModeAsync(string[] args, CancellationToken cancellationToken)
+	private static async Task SwitchAsync(LifxLanClient client, string[] args, CancellationToken cancellationToken)
 	{
-		using var client = new LifxLanClient(new LifxLanClientOptions {
-			Logger = Logger
-		});
-		client.Start(cancellationToken);
-		client.DeviceDiscovered += DeviceDiscovered;
-		client.DeviceLost += Client_DeviceLost;
-		client.StartDeviceDiscovery();
-
+		// Determine the device hostname
 		if (args.Length < 2)
 		{
 			throw new ArgumentException("Missing parameter: deviceHostname");
@@ -83,6 +89,7 @@ public static class Program
 		var deviceHostName = args[1];
 		Logger.LogDebug("Device hostname: {DeviceHostname}", deviceHostName);
 
+		// Determine the desired state
 		if (args.Length < 3)
 		{
 			throw new ArgumentException("Missing parameter: desiredState");
@@ -91,6 +98,7 @@ public static class Program
 		var desiredState = args[2];
 		Logger.LogDebug("Desired state: {DesiredState}", desiredState);
 
+		// Determine the transition timespan in milliseconds
 		TimeSpan transitionTimeSpan;
 		if (args.Length < 4)
 		{
@@ -99,7 +107,7 @@ public static class Program
 		}
 		else
 		{
-			transitionTimeSpan = TimeSpan.FromMilliseconds(int.TryParse(args[4], out var transitionTimeSpanSeconds) ? transitionTimeSpanSeconds : 0);
+			transitionTimeSpan = TimeSpan.FromMilliseconds(int.TryParse(args[3], out var transitionTimeSpanSeconds) ? transitionTimeSpanSeconds : 0);
 			Logger.LogDebug("TransitionTimeSpan {TransitionTimeSpanMs}ms", transitionTimeSpan.TotalMilliseconds);
 		}
 
@@ -109,7 +117,7 @@ public static class Program
 		{
 			await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
 			Logger.LogTrace("{Message}", "Waiting to find device...");
-			if (stopwatch.ElapsedMilliseconds > 5000)
+			if (stopwatch.ElapsedMilliseconds > 10000)
 			{
 				throw new TimeoutException("Timed out waiting to find device.");
 			}
@@ -175,42 +183,91 @@ public static class Program
 
 				Logger.LogDebug("{Message}", "Done");
 				break;
-			case "color":
-				if (args.Length < 5)
-				{
-					throw new ArgumentException("Missing parameter: desiredColor");
-				}
-
-				var desiredColorText = args[4];
-				var desiredColor = ColorExtensions.FromText(desiredColorText)
-					?? throw new ArgumentException($"Could not determine color from '{desiredColorText}'");
-				var desiredLifxColor = new Color {
-					R = desiredColor.R,
-					G = desiredColor.G,
-					B = desiredColor.B
-				};
-				if (args.Length < 6)
-				{
-					throw new ArgumentException("Missing parameter: desiredKelvin");
-				}
-
-				var desiredKelvinText = args[5];
-				if (!ushort.TryParse(desiredKelvinText, out var desiredKelvin))
-				{
-					throw new ArgumentException($"Non-ushort parameter: desiredKelvin '{desiredKelvinText}'");
-				}
-
-				Logger.LogInformation("Request: 'Switch {LightLabel} {DesiredState} {DesiredColor} {DesiredKelvin}'", lightLabel, desiredState, desiredColorText, desiredKelvin);
-				await client
-				.SetColorAsync(lightbulb, desiredLifxColor, desiredKelvin, transitionTimeSpan)
-				.ConfigureAwait(false);
-				Logger.LogDebug("{Message}", "Done");
-
-				break;
 			default:
 				Logger.LogError("Unsupported state: {DesiredState}", desiredState);
 				return;
 		}
+	}
+
+	private static async Task SetColorAsync(LifxLanClient client, string[] args, CancellationToken cancellationToken)
+	{
+		// Get hostname
+		if (args.Length < 2)
+		{
+			throw new ArgumentException("Missing parameter: deviceHostname");
+		}
+
+		var deviceHostName = args[1];
+		Logger.LogDebug("Device hostname: {DeviceHostname}", deviceHostName);
+
+		// Determine the desired color
+		if (args.Length < 3)
+		{
+			throw new ArgumentException("Missing parameter: desiredColor");
+		}
+
+		var desiredColorText = args[2];
+		var desiredColor = ColorExtensions.FromText(desiredColorText)
+			?? throw new ArgumentException($"Could not determine color from '{desiredColorText}'");
+		var desiredLifxColor = new Color {
+			R = desiredColor.R,
+			G = desiredColor.G,
+			B = desiredColor.B
+		};
+
+		// Determine the desired Kelvin
+		if (args.Length < 4)
+		{
+			throw new ArgumentException("Missing parameter: desiredKelvin");
+		}
+
+		var desiredKelvinText = args[3];
+		if (!ushort.TryParse(desiredKelvinText, out var desiredKelvin))
+		{
+			throw new ArgumentException($"Non-ushort parameter: desiredKelvin '{desiredKelvinText}'");
+		}
+
+		// Determine the desired transition time in ms
+		TimeSpan transitionTimeSpan;
+		if (args.Length < 5)
+		{
+			Logger.LogDebug("{Message}", "Missing parameter: transitionTimeSpanMs.  Using 0");
+			transitionTimeSpan = TimeSpan.Zero;
+		}
+		else
+		{
+			transitionTimeSpan = TimeSpan.FromMilliseconds(int.TryParse(args[4], out var transitionTimeSpanSeconds) ? transitionTimeSpanSeconds : 0);
+			Logger.LogDebug("TransitionTimeSpan {TransitionTimeSpanMs}ms", transitionTimeSpan.TotalMilliseconds);
+		}
+
+		var stopwatch = Stopwatch.StartNew();
+		Device? device;
+		while (!_devices.TryGetValue(deviceHostName, out device))
+		{
+			await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+			Logger.LogTrace("{Message}", "Waiting to find device...");
+			if (stopwatch.ElapsedMilliseconds > 10000)
+			{
+				throw new TimeoutException("Timed out waiting to find device.");
+			}
+		}
+		// We found it
+
+		// Create a lightbulb
+		var lightbulb = new LightBulb(device.HostName, device.MacAddress, device.Service, device.Port);
+
+		// Determine the current start
+		var lightState = await client.GetLightStateAsync(lightbulb)
+			.ConfigureAwait(false);
+
+		var lightLabel = lightState.Label;
+
+
+		Logger.LogInformation("Request: 'Color {LightLabel} {DesiredColor} {DesiredKelvin}'", lightLabel, desiredColorText, desiredKelvin);
+		await client
+		.SetColorAsync(lightbulb, desiredLifxColor, desiredKelvin, transitionTimeSpan)
+		.ConfigureAwait(false);
+		Logger.LogDebug("{Message}", "Done");
 	}
 
 	private static void HelpMode(string[] args)
@@ -237,7 +294,7 @@ Lifx.Cli.exe set <deviceHostname> <deviceMacAddress> <on|off>");
 		}
 	}
 
-	private static async Task DiscoveryModeAsync(string[] args, CancellationToken cancellationToken)
+	private static async Task DiscoveryModeAsync(LifxLanClient client, string[] args, CancellationToken cancellationToken)
 	{
 		if (args.Length > 1 && int.TryParse(args[1], out var discoveryTimeSeconds))
 		{
@@ -245,13 +302,9 @@ Lifx.Cli.exe set <deviceHostname> <deviceMacAddress> <on|off>");
 		}
 		else
 		{
-			discoveryTimeSeconds = 10;
+			discoveryTimeSeconds = 5;
 			Logger.LogDebug("Discovery time: {DiscoveryTimeSeconds}s (default)", discoveryTimeSeconds);
 		}
-
-		using var client = new LifxLanClient(new LifxLanClientOptions {
-			Logger = Logger
-		});
 
 		await DiscoverAsync(client, TimeSpan.FromSeconds(discoveryTimeSeconds), cancellationToken)
 			.ConfigureAwait(false);

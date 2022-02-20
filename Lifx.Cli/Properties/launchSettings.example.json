@@ -2,27 +2,27 @@
   "profiles": {
     "discover": {
       "commandName": "Project",
-      "commandLineArgs": "discover 5"
+      "commandLineArgs": "discover"
     },
-    "set toggle": {
+    "switch toggle": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.128 toggle"
+      "commandLineArgs": "switch 192.168.1.128 toggle"
     },
-    "set off": {
+    "switch off": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.128 off"
+      "commandLineArgs": "switch 192.168.1.128 off"
     },
-    "set on": {
+    "switch on": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.128 on"
+      "commandLineArgs": "switch 192.168.1.128 on"
     },
-    "set color white": {
+    "color white": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.128 color white"
+      "commandLineArgs": "color 192.168.1.128 white 5600"
     },
-    "set color red": {
+    "color red": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.128 color red"
+      "commandLineArgs": "color 192.168.1.128 red 5600"
     }
   }
 }
