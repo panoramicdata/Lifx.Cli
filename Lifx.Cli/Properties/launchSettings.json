@@ -1,0 +1,28 @@
+{
+  "profiles": {
+    "discover": {
+      "commandName": "Project",
+      "commandLineArgs": "discover 5"
+    },
+    "set toggle": {
+      "commandName": "Project",
+      "commandLineArgs": "set 192.168.1.139 toggle"
+    },
+    "set off": {
+      "commandName": "Project",
+      "commandLineArgs": "set 192.168.1.139 off"
+    },
+    "set on": {
+      "commandName": "Project",
+      "commandLineArgs": "set 192.168.1.139 on"
+    },
+    "set color white": {
+      "commandName": "Project",
+      "commandLineArgs": "set 192.168.1.139 color white"
+    },
+    "set color red": {
+      "commandName": "Project",
+      "commandLineArgs": "set 192.168.1.139 color red"
+    }
+  }
+}
