@@ -6,23 +6,23 @@
     },
     "set toggle": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.139 toggle"
+      "commandLineArgs": "set 192.168.1.128 toggle"
     },
     "set off": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.139 off"
+      "commandLineArgs": "set 192.168.1.128 off"
     },
     "set on": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.139 on"
+      "commandLineArgs": "set 192.168.1.128 on"
     },
     "set color white": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.139 color white"
+      "commandLineArgs": "set 192.168.1.128 color white"
     },
     "set color red": {
       "commandName": "Project",
-      "commandLineArgs": "set 192.168.1.139 color red"
+      "commandLineArgs": "set 192.168.1.128 color red"
     }
   }
 }

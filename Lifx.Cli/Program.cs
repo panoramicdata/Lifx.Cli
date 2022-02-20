@@ -71,7 +71,7 @@ public static class Program
 			Logger = Logger
 		});
 		client.Start(cancellationToken);
-		client.DeviceDiscovered += Client_DeviceDiscovered;
+		client.DeviceDiscovered += DeviceDiscovered;
 		client.DeviceLost += Client_DeviceLost;
 		client.StartDeviceDiscovery();
 
@@ -249,17 +249,41 @@ Lifx.Cli.exe set <deviceHostname> <deviceMacAddress> <on|off>");
 			Logger.LogDebug("Discovery time: {DiscoveryTimeSeconds}s (default)", discoveryTimeSeconds);
 		}
 
-		await DiscoverAsync(TimeSpan.FromSeconds(discoveryTimeSeconds), cancellationToken)
-			.ConfigureAwait(false);
-	}
-
-	private static async Task DiscoverAsync(TimeSpan discoveryTime, CancellationToken cancellationToken)
-	{
 		using var client = new LifxLanClient(new LifxLanClientOptions {
 			Logger = Logger
 		});
+
+		await DiscoverAsync(client, TimeSpan.FromSeconds(discoveryTimeSeconds), cancellationToken)
+			.ConfigureAwait(false);
+
+		foreach (var deviceKvp in _devices)
+		{
+			var device = deviceKvp.Value;
+
+			// Get status
+			var lightbulb = new LightBulb(device.HostName, device.MacAddress, device.Service, device.Port);
+
+			// Determine the current start
+			var lightState = await client.GetLightStateAsync(lightbulb)
+				.ConfigureAwait(false);
+
+			Logger.LogInformation("Found: {DeviceHostName} (mac={DeviceMacAddress}, service={DeviceService}), Called: {Label}, BSHK=({Brightness}, {Saturation}, {Hue}, {Kelvin})",
+				device.HostName,
+				device.MacAddressName,
+				device.Service,
+				lightState.Label,
+				lightState.Brightness,
+				lightState.Saturation,
+				lightState.Hue,
+				lightState.Kelvin
+				);
+		}
+	}
+
+	private static async Task DiscoverAsync(LifxLanClient client, TimeSpan discoveryTime, CancellationToken cancellationToken)
+	{
 		client.Start(cancellationToken);
-		client.DeviceDiscovered += Client_DeviceDiscovered;
+		client.DeviceDiscovered += DeviceDiscovered;
 		client.DeviceLost += Client_DeviceLost;
 		client.StartDeviceDiscovery();
 		try
@@ -275,10 +299,10 @@ Lifx.Cli.exe set <deviceHostname> <deviceMacAddress> <on|off>");
 		}
 	}
 
-	private static void Client_DeviceDiscovered(object? sender, LifxLanClient.DeviceDiscoveryEventArgs deviceDiscoveryEvent)
+	private static void DeviceDiscovered(object? sender, LifxLanClient.DeviceDiscoveryEventArgs deviceDiscoveryEvent)
 	{
 		var device = deviceDiscoveryEvent.Device;
-		Logger.LogInformation("Found: {DeviceHostName} (mac={DeviceMacAddress}, service={DeviceService})",
+		Logger.LogDebug("Found: {DeviceHostName} (mac={DeviceMacAddress}, service={DeviceService})",
 			device.HostName,
 			device.MacAddressName,
 			device.Service);
@@ -288,7 +312,7 @@ Lifx.Cli.exe set <deviceHostname> <deviceMacAddress> <on|off>");
 	private static void Client_DeviceLost(object? sender, LifxLanClient.DeviceDiscoveryEventArgs deviceLostEvent)
 	{
 		var device = deviceLostEvent.Device;
-		Logger.LogInformation("Lost: {DeviceHostName} (mac={DeviceMacAddress}, service={DeviceService})",
+		Logger.LogDebug("Lost: {DeviceHostName} (mac={DeviceMacAddress}, service={DeviceService})",
 			device.HostName,
 			device.MacAddressName,
 			device.Service);
