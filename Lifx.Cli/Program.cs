@@ -28,6 +28,7 @@ public static class Program
 			{
 				args = new string[] { "help" };
 			}
+
 			var mode = args[0];
 
 			switch (mode)
